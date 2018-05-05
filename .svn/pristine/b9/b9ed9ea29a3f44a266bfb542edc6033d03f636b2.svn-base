@@ -1,0 +1,18 @@
+local gameResultMgr = {}
+local history = {}--{gameResult}
+local R
+function gameResultMgr:setR(rr)
+	R = rr
+end
+
+function gameResultMgr:getLastResult()
+	if #history > 0 then return history[#history] end
+end
+
+function gameResultMgr:addResult(zpid, wpid, winType, isHongzhuang)
+	local gameres = hotRequire("logic.gameResult")
+	gameres:set(zpid, wpid, winType, isHongzhuang)
+	history[#history+1] = gameres
+end
+
+return gameResultMgr

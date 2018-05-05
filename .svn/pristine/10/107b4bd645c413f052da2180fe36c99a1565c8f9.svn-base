@@ -1,0 +1,118 @@
+local gameResultMgr = {}
+local history = {}--{gameResult}
+local R
+
+local function hotRequire(file_name)
+	package.loaded[file_name] = nil
+	local f = require(file_name)
+	return f
+end
+
+function gameResultMgr:setR(rr)
+	R = rr
+end
+
+function gameResultMgr:reset()
+	history = {}
+end
+
+function gameResultMgr:getLastResult()
+	if #history > 0 then return history[#history] end
+end
+
+
+function gameResultMgr:addResult(zhuangSite, winnerPid, winnerSite, winType, isHongzhuang)
+	print("addResult",zhuangSite, winnerPid, winnerSite, winType, isHongzhuang)
+	local gameres = hotRequire("logic.gameResult")
+	gameres:set(zhuangSite, winnerPid, winnerSite, winType, isHongzhuang)
+	history[#history+1] = gameres
+end
+
+function gameResultMgr:createZhuangSite()
+	local lastHis = self:getLastResult()
+	if not lastHis then
+		return math.random(1,R.MAX_PLAYER_COUNT)
+	end
+	
+	local function turnNextSite(s)
+		local z = (s + 1)%(R.MAX_PLAYER_COUNT)
+		return z == 0 and R.MAX_PLAYER_COUNT or z
+	end
+	
+	print("A",lastHis:isWin(), lastHis:getWinnerSite(),lastHis:getWinnerPid(), lastHis:getZhuangSite(), turnNextSite(lastHis:getZhuangSite()))
+	if lastHis:isWin() then
+		return lastHis:getWinnerSite()
+	end
+	
+	local zhuangSite = lastHis:getZhuangSite()
+	
+	return turnNextSite(zhuangSite)
+end
+
+function gameResultMgr:parseWinnerType(winType, winPayRule, winSite, winPayCardSite, turnRunCount)
+	if winType == R.wintype.pinghu then
+		if winPayRule == R.rule.Peng then return R.wintype.penghu end
+		
+		if winPayRule == R.rule.Pao or 
+			winPayRule == R.rule.Pao_kan or
+			winPayRule == R.rule.Pao_wei or
+			winPayRule == R.rule.Pao_peng then
+		return R.wintype.paohu end
+		
+		if winPayRule == R.rule.Wei or 
+			winPayRule == R.rule.Wei_chou then
+		return R.wintype.zimo end
+		
+		if winPayRule == R.rule.Chi then
+			if winSite == winPayCardSite then  return R.wintype.zimo  end
+			
+		end
+		
+		if turnRunCount == 0 then return R.wintype.tianhu end
+		if turnRunCount == 1 then return R.wintype.dihu end
+		
+		return winType
+	end
+	
+	if winType == R.wintype.wufu or
+		winType == R.wintype.paoshuang or
+		winType == R.wintype.qidui or
+		winType == R.wintype.shuanglong then
+		return winType
+	end
+	
+	return winType
+end
+
+function gameResultMgr:getWinBuff()
+	local zhuangWin zhongzhuang, lianzhongCnt = false,false,0
+	while(true) do
+		if #history == 0 then 
+			break 
+		end
+		if #history == 1 then
+			zhuangWin = history[1]:isWin()
+			break
+		end
+		
+		local maxCon = 1
+		local winsite = history[#history]:getWinnerSite()
+		local winres = history[#history]:isWin()
+		
+		for i=#history-1, 1, -1 do
+			if winsite == history[i]:getWinnerSite() then
+				maxCon=maxCon+1
+			else
+				break
+			end
+		end
+		zhongzhuang = (maxCon > 1 and true or false)
+		zhuangWin = winres
+		lianzhongCnt = math.max(0, maxCon - 2)
+		break
+	end
+	
+	return zhuangWin, zhongzhuang, lianzhongCnt
+end
+
+return gameResultMgr

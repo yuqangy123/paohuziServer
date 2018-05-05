@@ -8,7 +8,7 @@ skynet.start(function()
 	if not skynet.getenv "daemon" then
 		local console = skynet.newservice("console")
 	end
-	skynet.newservice("debug_console",8000)
+	--skynet.newservice("debug_console",8000)
 	
 	--db service
 	local dbserver = skynet.newservice ("db_service")
@@ -25,7 +25,7 @@ skynet.start(function()
 		address="120.25.156.167",
 		--address="192.168.220.128",
 		--address="172.31.23.220",
-		port = 8088,
+		port = 8080,
 		maxclient = 1024,
 		nodelay = true,
 		gameRoot = gameRoot,

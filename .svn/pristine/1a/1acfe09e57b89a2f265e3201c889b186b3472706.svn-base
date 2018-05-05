@@ -1,0 +1,65 @@
+local skynet = require "skynet"
+require "skynet.manager"
+local netpack = require "netpack"
+local mutexLock = require "skynet.queue"
+local cs = mutexLock()
+local CMD = setmetatable({}, { __gc = function() netpack.clear(queue) end })
+
+local gameCenter = nil
+
+
+function CMD.exit()
+	skynet.exit()
+	skynet.kill(gameCenter)
+end
+
+
+function CMD.playerReEnter(pid, nickName, ip)
+	cs(function() skynet.call(gameCenter, "lua", "playerReEnter", pid, nickName, ip) end)
+end
+
+function CMD.playerEnterRoom(pid, nickName, ip)
+	cs(function() skynet.call(gameCenter, "lua", "playerEnter", pid, nickName, ip) end)
+end
+
+function CMD.playerReady(pid)
+	cs(function() skynet.call(gameCenter, "lua", "playerReady", pid) end)
+end
+
+function CMD.playerChat(pid, faceid)
+	cs(function() skynet.call(gameCenter, "lua", "playerChat", pid, faceid) end)
+end
+
+function CMD.playerPayCard(pid, rule, cid)
+	cs(function() skynet.call(gameCenter, "lua", "playerPayCards", pid, rule, cid) end)
+end
+
+
+
+function CMD.initRoom(rid, gr, jushu, zhongzhuang, qiangzhihupai)
+	gameRoot = gr
+
+	local roomid = rid
+
+	if not gameCenter then gameCenter = skynet.newservice ("logic/gameCenter") end
+	
+	skynet.call(gameCenter, "lua", "initGame", roomid, jushu and 8 or 16, zhongzhuang and true or false, qiangzhihupai and true or false)
+	
+	skynet.call(gameCenter, "lua", "setMsgTransfer", gameRoot)
+
+	--return roomid
+end
+
+skynet.start(function()
+		print("roomAgent service start")
+		skynet.dispatch("lua", function (session, address, cmd, ...)
+			--print("roomAgent.dispatch.cmd: " .. cmd)
+			local f = CMD[cmd]
+			if f then
+				skynet.ret(skynet.pack(f(...)))
+			else
+				skynet.ret(skynet.pack(handler.command(cmd, address, ...)))
+			end
+		end)
+
+end)

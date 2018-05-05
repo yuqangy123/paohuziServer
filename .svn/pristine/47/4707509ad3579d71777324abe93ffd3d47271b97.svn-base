@@ -1,0 +1,202 @@
+local skynet = require "skynet"
+local netpack = require "netpack"
+local socket = require "socket"
+local sproto = require "sproto"
+local sprotoloader = require "sprotoloader"
+local datacenter = require "datacenter"
+local mutexLock = require "skynet.queue"
+local cs = mutexLock()
+require "functions"
+--local sproto_core = require "sproto.core"
+
+local watchdog
+local gameRoot
+local host
+local packMsg
+
+local CMD = {}
+local REQUEST = {}
+local m_inRoom = false
+
+
+function print_lua_table (lua_table, indent)
+    indent = indent or 0
+    for k, v in pairs(lua_table) do
+        if type(k) == "string" then
+            k = string.format("%q", k)
+        end
+        local szSuffix = ""
+        if type(v) == "table" then
+            szSuffix = "{"
+        end
+        local szPrefix = string.rep("    ", indent)
+        formatting = szPrefix.."["..k.."]".." = "..szSuffix
+        if type(v) == "table" then
+            print(formatting)
+            print_lua_table(v, indent + 1)
+            print(szPrefix.."},")
+        else
+            local szValue = ""
+            if type(v) == "string" then
+                szValue = string.format("%q", v)
+            else
+                szValue = tostring(v)
+            end
+            print(formatting..szValue..",")
+        end
+    end
+end
+
+local user_info = {
+	pid = 0,
+	nikeName = "",
+	ip = "",
+	fd = 0,
+}
+local game_info = {
+	roomid = 0
+}
+local playing = false
+
+function REQUEST:totalPush()
+	--local r = skynet.call("db_service", "lua", "getPlayerData", self.token)
+	
+	local pid = datacenter.get("serial_pid", "pid")
+	datacenter.set("serial_pid", "pid", pid+1)
+	
+	user_info.pid = pid
+	user_info.nikeName = self.token .. ":" .. pid
+	
+	skynet.call(gameRoot, "lua", "playerOnline", skynet.self(), user_info.fd, pid)
+	
+	local res = { code=0, pid = user_info.pid, nickname = user_info.nikeName, ip = user_info.ip, roomid = 0}
+
+	local roomid = skynet.call(gameRoot, "lua", "isInRoom", pid)
+	if roomid then
+		res.code = 1
+		res.roomid = roomid
+		game_info.roomid = roomid
+	end
+	playing = roomid and true or false
+	
+	return res
+end
+
+function REQUEST:createRoom()
+	local res,roomid = skynet.call(gameRoot, "lua", "createRoom", user_info.pid, self.jushu, self.zhongzhuang, self.qiangzhihupai)
+	game_info.roomid = roomid
+	return {code=res, roomid=roomid}
+end
+
+function REQUEST:roomExist()
+	local res = skynet.call(gameRoot, "lua", "roomExist", self.roomid)
+	return {code=res}
+end
+
+function REQUEST:joinRoom()
+	skynet.call(gameRoot, "lua", "playerEnterRoom", self.roomid, user_info.pid, user_info.nikeName, user_info.ip)
+end
+
+function REQUEST:playerReEnter()
+	skynet.call(gameRoot, "lua", "playerReEnter",game_info.roomid, user_info.pid, user_info.nikeName, user_info.ip)
+end
+
+function REQUEST:ready()
+	skynet.call(gameRoot, "lua", "playerReady",game_info.roomid, user_info.pid)
+end
+
+function REQUEST:chat()
+	skynet.call(gameRoot, "lua", "playerChat",game_info.roomid, user_info.pid, self.faceid)
+end
+
+function REQUEST:payCard()
+	skynet.call(gameRoot, "lua", "playerPayCard",game_info.roomid, user_info.pid, self.rule, self.cid)
+end
+
+
+
+function REQUEST:quit()
+	skynet.call(watchdog, "lua", "close", user_info.fd)
+end
+
+local function request(name, args, response)
+	print("agent.request.name", name)
+	local f = assert(REQUEST[name])
+	local r = f(args)
+
+	if response then
+		return response(r)
+	end
+end
+
+local function send_package(pack)
+	local package = string.pack(">s2", pack)
+	socket.write(user_info.fd, package)
+end
+
+skynet.register_protocol {
+	name = "client",
+	id = skynet.PTYPE_CLIENT,
+	unpack = function (msg, sz)
+		--local bin = sproto_core.unpack(msg, sz)
+		return host:dispatch(msg, sz)
+	end,
+	dispatch = function (_, _, type, ...)
+		if type == "REQUEST" then
+			local ok, result  = pcall(request, ...)
+			if ok then
+				if result then
+					send_package(result)
+				end
+			else
+				skynet.error(result)
+			end
+		else
+			assert(type == "RESPONSE")
+			error "This example doesn't support request client"
+		end
+	end
+}
+
+
+function CMD.msg_notify(msgName, pack)
+	
+	cs(function() 
+		skynet.sleep(40)
+		print("MSG>>>>>>>>>>playerAgent.msg_notify.msgName", msgName)
+		print_lua_table(pack)
+		send_package(packMsg(msgName,pack))
+	end)
+	
+end
+
+
+function CMD.start(conf)
+	local gate = conf.gate
+	gameRoot = conf.gameRoot
+	watchdog = conf.watchdog
+	user_info.ip = conf.addr
+	user_info.fd = conf.client
+	
+
+	-- slot 1,2 set at main.lua
+	host = sprotoloader.load(1):host "package"
+	packMsg = host:attach(sprotoloader.load(2))
+
+	skynet.call(gate, "lua", "forward", user_info.fd)
+end
+
+function CMD.disconnect()
+	-- todo: do something before exit
+	skynet.call(gameRoot, "lua", "playerOffline", skynet.self(), user_info.pid)
+	skynet.exit()
+end
+
+skynet.start(function()
+	skynet.dispatch("lua", function(_,_, command, ...)
+		--print("agent dispatch lua:", command)
+		local f = CMD[command]
+		--f(...)
+		skynet.ret(skynet.pack(f(...)))
+	end)
+end)

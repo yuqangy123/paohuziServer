@@ -1,0 +1,209 @@
+local sprotoparser = require "sprotoparser"
+
+local proto = {}
+
+proto.c2s = sprotoparser.parse [[
+.package {
+	type 0 : integer
+	session 1 : integer
+}
+
+userLogin 1 {
+	request {
+		token 0 : string
+	}
+	response {
+        	code 	0  : integer
+		pid		1  : integer
+		nikename	2 : string
+		ip 		3 : string
+		roomid 	4 : integer
+	}
+}
+
+userUnlogin 2{
+	request {
+	}
+}
+
+totalPush 3 {
+	request {
+		token 0 : string
+	}
+	response {
+        	code 	0  : integer
+		pid 	1  : integer
+		nickname 	2 : string
+		ip 		3 : string
+		roomid 	4 : integer
+	}
+}
+
+createRoom 4 {
+	request {
+		jushu 		0 : boolean
+		zhongzhuang 	1 : boolean
+		qiangzhihupai 	2 : boolean
+	}
+	response {
+		code 	0  : integer
+		roomid 	1 : integer
+	}
+}
+
+roomExist 5 {
+	request {
+		roomid 	0 : integer
+	}
+	response {
+		code 	0  : integer
+	}
+}
+
+joinRoom 6 {
+	request {
+		roomid 	0 : integer
+	}
+}
+
+playerReEnter 7 {
+	request {
+	}
+}
+
+ready 8 {
+	request {
+	}
+}
+
+chat 9 {
+	request {
+	faceid 0 : integer
+	}
+}
+
+payCard 10 {
+	request {
+		rule 	0 : string
+		cid 	1 : string
+	}
+}
+
+]]
+
+proto.s2c = sprotoparser.parse [[
+.package {
+	type 0 : integer
+	session 1 : integer
+}
+
+
+notice 1 {
+	request     {
+        noticeInfo 0 : string
+	}
+}
+
+joinRoomNotify 2 {
+	request     {
+		pid 	0 : string
+		nickname 	1 : string
+		ip 		2 : string
+		site 	3 : string
+		ready 	4 : string
+		score 	5 : string
+		totalScore 	6 : string
+		gameConfig 	7 : string
+	}
+}
+
+readyNotify 3 {
+	request     {
+		pid		0 : integer
+	}
+}
+
+startNotify 4 {
+	request     {
+	}
+}
+
+roomCardInitNotify 5 {
+	request     {
+		pids 	0 : string
+		hand 	1 : string
+		rule 	2 : string
+		single 	3 : string
+		zhuangpid 	4: integer
+		remainsystemcards  	5 : integer
+	}
+}
+
+chatNotify 6 {
+	request     {
+		faceid	0 : integer
+		pid	1 : integer
+	}
+}
+
+paySystemCardNotify 7 {
+	request     {
+		cid  	0 : integer
+		pid	 	1 : integer
+	}
+}
+
+turnPlayerNotify 8 {
+	request     {
+		pid	 	0 : integer
+	}
+}
+
+payCardNotify 9 {
+	request     {
+		pid	 	0 : integer
+		cid  	1 : integer
+	}
+}
+
+ruleCardsPossible 10 {
+	request     {
+		pid	 	0 : integer
+		rule  	1 : string
+		cid  	2 : string
+		ocid 	3 : string
+	}
+}
+
+payRuleCardNotify 11 {
+	request     {
+		pid	 	0 : integer
+		cid  	1 : string
+		rule  	2 : string
+	}
+}
+
+payBillNotify 12 {
+	request     {
+		yieldPid	0 : integer
+		yieldScore  1 : integer
+		payBills  	2 : string
+	}
+}
+
+hupaiNotify 13 {
+	request     {
+		pid	 	0 : integer
+		rule  	1 : string
+	}
+}
+
+gameFinishNotify 14 {
+	request     {
+	}
+}
+
+
+]]
+
+return proto

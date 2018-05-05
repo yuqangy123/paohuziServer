@@ -1,0 +1,28 @@
+[:00000001] LAUNCH logger logServer
+[:00000002] LAUNCH snlua bootstrap
+[:00000003] LAUNCH snlua launcher
+[:00000004] LAUNCH snlua cdummy
+[:00000005] LAUNCH harbor 0 4
+[:00000006] LAUNCH snlua datacenterd
+[:00000007] LAUNCH snlua service_mgr
+[:00000008] LAUNCH snlua main
+[:00000009] LAUNCH snlua db_service
+[:0000000a] LAUNCH snlua protoloader
+[:0000000b] LAUNCH snlua gameRoot
+[:0000000c] LAUNCH snlua roomManager
+[:0000000d] LAUNCH snlua sharedatad
+[:0000000e] LAUNCH snlua clientErrorCollect
+[:0000000f] LAUNCH snlua watchdog
+[:00000010] LAUNCH snlua gate
+[:00000010] Listen on 120.25.156.167:8080
+[:00000002] KILL self
+[:00000012] LAUNCH snlua playerAgent
+[:00000013] LAUNCH snlua playerAgent
+[:00000014] LAUNCH snlua playerAgent
+[:00000015] LAUNCH snlua playerAgent
+[:00000016] LAUNCH snlua roomAgent
+[:00000017] LAUNCH snlua logic/gameCenter
+[:00000014] KILL self
+[:00000012] KILL self
+[:00000015] KILL self
+[:00000013] KILL self

@@ -1,0 +1,277 @@
+local sprotoparser = require "sprotoparser"
+
+local proto = {}
+
+proto.c2s = sprotoparser.parse [[
+.package {
+	type 0 : integer
+	session 1 : integer
+}
+
+heartbeat 1 {}
+
+userLogin 2 {
+	request {
+		token 0 : string
+	}
+	response {
+        code 	0  : integer
+		pid		1  : integer
+		nikename	2 : string
+		ip 		3 : string
+		roomid 	4 : integer
+	}
+}
+
+userUnlogin 3{
+	request {
+	}
+}
+
+errLog 4{
+	request {
+		log		0 : string
+	}
+}
+
+totalPush 5 {
+	request {
+		token 0 : string
+	}
+	response {
+        	code 	0  : integer
+		pid 	1  : integer
+		nickname 	2 : string
+		ip 		3 : string
+		roomid 	4 : integer
+	}
+}
+
+createRoom 6 {
+	request {
+		jushu 		0 : boolean
+		zhongzhuang 	1 : boolean
+		qiangzhihupai 	2 : boolean
+	}
+	response {
+		code 	0  : integer
+		roomid 	1 : integer
+	}
+}
+
+roomExist 7 {
+	request {
+		roomid 	0 : integer
+	}
+	response {
+		code 	0  : integer
+	}
+}
+
+joinRoom 8 {
+	request {
+		roomid 	0 : integer
+	}
+}
+
+rejoinRoom 9 {
+	request {
+	}
+}
+
+ready 10 {
+	request {
+	}
+}
+
+chat 11 {
+	request {
+	faceid 0 : integer
+	}
+}
+
+payCard 12 {
+	request {
+		rule 	0 : string
+		cid 	1 : string
+	}
+}
+
+masterCheckoutRoom 13 {
+	request {
+	}
+}
+
+requestCheckoutRoom 14 {
+	request {
+	}
+}
+
+agreeCheckoutRoom 15 {
+	request {
+		code	0 : integer
+	}
+}
+
+canWufuBaojing 14 {
+	request     {
+		code 	0 : boolean
+	}
+}
+]]
+
+proto.s2c = sprotoparser.parse [[
+.package {
+	type 0 : integer
+	session 1 : integer
+}
+
+heartbeat 1 {}
+
+notice 2 {
+	request     {
+        noticeInfo 0 : string
+	}
+}
+
+joinRoomNotify 3 {
+	request     {
+		code	0 : integer
+		pid 	1 : string
+		nickname 	2 : string
+		ip 		3 : string
+		site 	4 : string
+		ready 	5 : string
+		score 	6 : string
+		totalScore 	7 : string
+		winCount	8 : string
+		zzCount 9 : string
+		dpCount	10 : string
+		gameConfig 	11 : string
+		roomid	12 : integer
+		roommaster	13 : integer
+	}
+}
+
+readyNotify 4 {
+	request     {
+		pid		0 : integer
+	}
+}
+
+startNotify 5 {
+	request     {
+	}
+}
+
+roomCardInitNotify 6 {
+	request     {
+		pids 	0 : string
+		hand 	1 : string
+		rule 	2 : string
+		single 	3 : string
+		zhuangpid 	4 : integer
+		remainsystemcards  	5 : integer
+	}
+}
+
+chatNotify 7 {
+	request     {
+		faceid	0 : integer
+		pid	1 : integer
+	}
+}
+
+paySystemCardNotify 8 {
+	request     {
+		cid  	0 : integer
+		pid	 	1 : integer
+		show 	2 : boolean
+	}
+}
+
+turnPlayerNotify 9 {
+	request     {
+		pid	 	0 : integer
+	}
+}
+
+payCardNotify 10 {
+	request     {
+		pid	 	0 : integer
+		cid  	1 : integer
+		show 	2 : boolean
+	}
+}
+
+ruleCardsPossible 11 {
+	request     {
+		pid	 	0 : integer
+		rule  	1 : string
+		cid  	2 : string
+		ocid 	3 : string
+	}
+}
+
+payRuleCardNotify 12 {
+	request     {
+		pid	 	0 : integer
+		cid  	1 : string
+		rule  	2 : string
+		othercard	3 : integer
+	}
+}
+
+payBillNotify 13 {
+	request     {
+		yieldPid	0 : integer
+		yieldScore  1 : integer
+		payBills  	2 : string
+	}
+}
+
+wufuBaojingNotify 14 {
+	request     {
+		pid	 	0 : integer
+	}
+}
+
+hupaiNotify 15 {
+	request     {
+		pid	 	0 : integer
+		rule  	1 : string
+		hupaiCard	2 : integer
+		dpPid	3 : integer
+		lianzhuangCount	4 : integer
+		gameCount	5 : integer
+		remaincards 6 : string
+	}
+}
+
+gameFinishNotify 16 {
+	request     {
+	}
+}
+
+requestCheckoutRoomNotify 17 {
+	request     {
+	}
+}
+
+checkoutRoomNotify 18 {
+	request     {
+		code	0 : integer
+	}
+}
+
+masterCheckoutRoomNotify 19 {
+	request     {
+	}
+}
+canWufuBaojing 20 {
+	request     {
+	}
+}
+]]
+
+return proto

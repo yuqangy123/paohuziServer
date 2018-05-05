@@ -1,0 +1,27 @@
+
+local cardlist={}
+
+cardlist[1] = {
+{10,1},
+}
+
+cardlist[2] = {
+{10,1},
+{10,1},
+{1,0},
+{1,0},
+}
+
+cardlist[3] = {
+}
+
+cardlist[4] = {
+}
+
+cardlist[5] = {
+{10,1},
+}
+
+cardlist[6] = 0
+
+return cardlist

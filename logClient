@@ -1,0 +1,235 @@
+Wed Jan 18 21:26:34 2017
+[string ".\framework/LayerManager.lua"]:205: attempt to index a nil value
+stack traceback:
+	[string ".\framework/LayerManager.lua"]:234: in function 'closeFloat'
+	[string ".\src/com/ViewBase.lua"]:115: in function 'closeFloat'
+	[string ".\src/layer/roomLayer.lua"]:233: in function 'clickCallback'
+	[string ".\src/layer/gameOverLayer.lua"]:165: in function <[string ".\src/layer/gameOverLayer.lua"]:162>
+	[string ".\src/com/ViewBase.lua"]:85: in function 'callback'
+	[string ".\cocos/framework/extends/UIWidget.lua"]:41: in function <[string ".\cocos/framework/extends/UIWidget.lua"]:28>
+
+
+Wed Jan 18 21:26:45 2017
+[string ".\framework/LayerManager.lua"]:205: attempt to index a nil value
+stack traceback:
+	[string ".\framework/LayerManager.lua"]:234: in function 'closeFloat'
+	[string ".\src/com/ViewBase.lua"]:115: in function 'closeFloat'
+	[string ".\src/layer/roomLayer.lua"]:233: in function 'clickCallback'
+	[string ".\src/layer/gameOverLayer.lua"]:165: in function <[string ".\src/layer/gameOverLayer.lua"]:162>
+	[string ".\src/com/ViewBase.lua"]:85: in function 'callback'
+	[string ".\cocos/framework/extends/UIWidget.lua"]:41: in function <[string ".\cocos/framework/extends/UIWidget.lua"]:28>
+
+
+Wed Jan 18 21:27:19 2017
+[string ".\framework/LayerManager.lua"]:205: attempt to index a nil value
+stack traceback:
+	[string ".\framework/LayerManager.lua"]:234: in function 'closeFloat'
+	[string ".\src/com/ViewBase.lua"]:115: in function 'closeFloat'
+	[string ".\src/layer/roomLayer.lua"]:233: in function 'clickCallback'
+	[string ".\src/layer/gameOverLayer.lua"]:165: in function <[string ".\src/layer/gameOverLayer.lua"]:162>
+	[string ".\src/com/ViewBase.lua"]:85: in function 'callback'
+	[string ".\cocos/framework/extends/UIWidget.lua"]:41: in function <[string ".\cocos/framework/extends/UIWidget.lua"]:28>
+
+
+Wed Jan 18 22:58:31 2017
+[string ".\src/ctrl/playCtrl.lua"]:236: attempt to index local 'player' (a nil value)
+stack traceback:
+	[string ".\src/ctrl/playCtrl.lua"]:593: in function 'v'
+	[string ".\src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string ".\src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string ".\src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string ".\src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string ".\src/NetWork/networkManager.lua"]:41: in function <[string ".\src/NetWork/networkManager.lua"]:32>
+
+
+Wed Jan 18 23:17:15 2017
+[string ".\src/mgr/playManager.lua"]:287: attempt to call method 'getPos' (a nil value)
+stack traceback:
+	[string ".\src/mgr/playManager.lua"]:407: in function 'payRuleCardNotify'
+	[string ".\src/ctrl/minorPlayerCtrl.lua"]:64: in function 'payRuleCardNotify'
+	[string ".\src/ctrl/playCtrl.lua"]:362: in function 'f'
+	[string ".\src/ctrl/playCtrl.lua"]:593: in function 'v'
+	[string ".\src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string ".\src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string ".\src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string ".\src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string ".\src/NetWork/networkManager.lua"]:41: in function <[string ".\src/NetWork/networkManager.lua"]:32>
+
+
+Wed Jan 18 23:19:05 2017
+[string ".\src/mgr/playManager.lua"]:225: attempt to index a nil value
+stack traceback:
+	[string ".\src/ctrl/playCtrl.lua"]:236: in function 'f'
+	[string ".\src/ctrl/playCtrl.lua"]:593: in function 'v'
+	[string ".\src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string ".\src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string ".\src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string ".\src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string ".\src/NetWork/networkManager.lua"]:41: in function <[string ".\src/NetWork/networkManager.lua"]:32>
+
+
+Mon Feb  6 23:34:58 2017
+[string ".\src/layer/roomLayer.lua"]:435: attempt to concatenate field 'configTimes' (a nil value)
+stack traceback:
+	[string ".\src/ctrl/playCtrl.lua"]:123: in function 'f'
+	[string ".\src/ctrl/playCtrl.lua"]:582: in function 'v'
+	[string ".\src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string ".\src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string ".\src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string ".\src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string ".\src/NetWork/networkManager.lua"]:41: in function <[string ".\src/NetWork/networkManager.lua"]:32>
+
+
+Mon Feb  6 23:41:47 2017
+[string ".\src/ctrl/playCtrl.lua"]:161: attempt to index local 'player' (a nil value)
+stack traceback:
+	[string ".\src/ctrl/playCtrl.lua"]:582: in function 'v'
+	[string ".\src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string ".\src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string ".\src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string ".\src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string ".\src/NetWork/networkManager.lua"]:41: in function <[string ".\src/NetWork/networkManager.lua"]:32>
+
+
+Mon Feb  6 23:44:01 2017
+[string ".\src/ctrl/playCtrl.lua"]:161: attempt to index local 'player' (a nil value)
+stack traceback:
+	[string ".\src/ctrl/playCtrl.lua"]:582: in function 'v'
+	[string ".\src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string ".\src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string ".\src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string ".\src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string ".\src/NetWork/networkManager.lua"]:41: in function <[string ".\src/NetWork/networkManager.lua"]:32>
+
+
+Mon Feb  6 23:45:53 2017
+[string ".\src/ctrl/playCtrl.lua"]:162: attempt to index local 'player' (a nil value)
+stack traceback:
+	[string ".\src/ctrl/playCtrl.lua"]:583: in function 'v'
+	[string ".\src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string ".\src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string ".\src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string ".\src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string ".\src/NetWork/networkManager.lua"]:41: in function <[string ".\src/NetWork/networkManager.lua"]:32>
+
+
+Mon Feb  6 23:46:25 2017
+[string ".\src/ctrl/playCtrl.lua"]:190: attempt to index local 'player' (a nil value)
+stack traceback:
+	[string ".\src/ctrl/playCtrl.lua"]:585: in function 'v'
+	[string ".\src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string ".\src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string ".\src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string ".\src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string ".\src/NetWork/networkManager.lua"]:41: in function <[string ".\src/NetWork/networkManager.lua"]:32>
+
+
+Sun Feb 19 19:08:10 2017
+okAKRwL-cXkNlIhCkM9PjzkOOBKs
+
+
+Sun Feb 19 19:08:16 2017
+okAKRwL-cXkNlIhCkM9PjzkOOBKs
+
+
+Tue Mar 14 21:50:46 2017
+okAKRwPB22gw4MYjh-iGWBdUpgDs
+
+
+Tue Mar 14 21:50:56 2017
+okAKRwPB22gw4MYjh-iGWBdUpgDs
+
+
+Tue Mar 14 21:51:07 2017
+okAKRwPB22gw4MYjh-iGWBdUpgDs
+
+
+Tue Mar 14 21:51:17 2017
+okAKRwPB22gw4MYjh-iGWBdUpgDs
+
+
+Tue Mar 14 21:52:34 2017
+okAKRwPB22gw4MYjh-iGWBdUpgDs
+
+
+Tue Mar 14 21:52:41 2017
+okAKRwPB22gw4MYjh-iGWBdUpgDs
+
+
+Tue Mar 14 21:52:48 2017
+okAKRwPB22gw4MYjh-iGWBdUpgDs
+
+
+Thu Mar 23 13:03:29 2017
+[string "src/ctrl/playCtrl.lua"]:503: attempt to compare number with nil
+stack traceback:
+	[string "src/ctrl/playCtrl.lua"]:582: in function 'v'
+	[string "src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string "src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string "src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string "src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string "src/NetWork/networkManager.lua"]:41: in function <[string "src/NetWork/networkManager.lua"]:32>
+
+
+Fri Mar 24 14:28:00 2017
+[string "src/ctrl/playCtrl.lua"]:161: attempt to index local 'player' (a nil value)
+stack traceback:
+	[string "src/ctrl/playCtrl.lua"]:582: in function 'v'
+	[string "src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string "src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string "src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string "src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string "src/NetWork/networkManager.lua"]:41: in function <[string "src/NetWork/networkManager.lua"]:32>
+
+
+Fri Mar 24 14:28:17 2017
+[string "src/ctrl/playCtrl.lua"]:503: attempt to compare number with nil
+stack traceback:
+	[string "src/ctrl/playCtrl.lua"]:582: in function 'v'
+	[string "src/NetWork/networkHandle_game.lua"]:65: in function 'eventCallback'
+	[string "src/NetWork/networkHandle_game.lua"]:110: in function 'print_request'
+	[string "src/NetWork/networkHandle_game.lua"]:128: in function 'print_package'
+	[string "src/NetWork/networkHandle_game.lua"]:135: in function 'onMessage'
+	[string "src/NetWork/networkManager.lua"]:41: in function <[string "src/NetWork/networkManager.lua"]:32>
+
+
+Sun Apr  2 18:41:56 2017
+okAKRwL-cXkNlIhCkM9PjzkOOBKs
+
+
+Sun Apr  2 18:42:12 2017
+okAKRwL-cXkNlIhCkM9PjzkOOBKs
+
+
+Sun Apr  2 18:42:28 2017
+okAKRwL-cXkNlIhCkM9PjzkOOBKs
+
+
+Fri Sep 29 22:55:59 2017
+okAKRwJ3t9PJwWPsRgYcwL8rMscw
+
+
+Fri Sep 29 22:56:10 2017
+okAKRwJ3t9PJwWPsRgYcwL8rMscw
+
+
+Fri Sep 29 22:56:15 2017
+okAKRwJ3t9PJwWPsRgYcwL8rMscw
+
+
+Fri Sep 29 22:57:23 2017
+okAKRwJ3t9PJwWPsRgYcwL8rMscw
+
+
+Fri Sep 29 22:58:02 2017
+okAKRwJ3t9PJwWPsRgYcwL8rMscw
+
+
+Fri Sep 29 22:59:54 2017
+okAKRwJ3t9PJwWPsRgYcwL8rMscw
+
+
+Fri Sep 29 23:00:03 2017
+okAKRwJ3t9PJwWPsRgYcwL8rMscw
+
+

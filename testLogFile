@@ -1,0 +1,24 @@
+[:00000001] LAUNCH logger testLogFile
+[:00000002] LAUNCH snlua bootstrap
+[:00000003] LAUNCH snlua launcher
+[:00000004] LAUNCH snlua cdummy
+[:00000005] LAUNCH harbor 0 4
+[:00000006] LAUNCH snlua datacenterd
+[:00000007] LAUNCH snlua service_mgr
+[:00000008] LAUNCH snlua main
+[:00000008] Server start
+[:00000009] LAUNCH snlua protoloader
+[:0000000a] LAUNCH snlua console
+[:0000000b] LAUNCH snlua debug_console 8000
+[:0000000b] Start debug console at 127.0.0.1:8000
+[:00000008] init service failed: ./examples/main.lua:25: attempt to perform arithmetic on a nil value (field 'x')
+stack traceback:
+	./examples/main.lua:25: in local 'start'
+	./lualib/skynet.lua:611: in function <./lualib/skynet.lua:608>
+	[C]: in function 'xpcall'
+	./lualib/skynet.lua:615: in function 'skynet.pcall'
+	./lualib/skynet.lua:619: in function 'skynet.init_service'
+	./lualib/skynet.lua:632: in upvalue 'f'
+	./lualib/skynet.lua:104: in function <./lualib/skynet.lua:103>
+[:00000008] KILL self
+[:00000002] KILL self

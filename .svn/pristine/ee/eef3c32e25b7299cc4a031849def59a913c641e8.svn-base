@@ -1,0 +1,240 @@
+local gameScoreMgr = {}
+local scoreMgr = gameScoreMgr
+scoreMgr.players={}
+scoreMgr.zhuangSite = 0
+scoreMgr.msgTrans = nil
+
+local R
+local history={}
+local cardIds = {}
+local gameCtrl = nil
+
+
+function print_lua_table (lua_table, indent)
+    indent = indent or 0
+    for k, v in pairs(lua_table) do
+        if type(k) == "string" then
+            k = string.format("%q", k)
+        end
+        local szSuffix = ""
+        if type(v) == "table" then
+            szSuffix = "{"
+        end
+        local szPrefix = string.rep("    ", indent)
+        formatting = szPrefix.."["..k.."]".." = "..szSuffix
+        if type(v) == "table" then
+            print(formatting)
+            print_lua_table(v, indent + 1)
+            print(szPrefix.."},")
+        else
+            local szValue = ""
+            if type(v) == "string" then
+                szValue = string.format("%q", v)
+            else
+                szValue = tostring(v)
+            end
+            print(formatting..szValue..",")
+        end
+    end
+end
+
+function gameScoreMgr:reset(players, cardIds, zhuangSite)
+	
+	for k,v in pairs(players) do 
+		scoreMgr.players[k] = v
+		history[v:getLocalsite()] = {}
+	end
+	
+	cardIds = cardIds
+	scoreMgr.zhuangSite = zhuangSite
+	
+	
+end
+
+function gameScoreMgr:setR(rr)
+	R = rr
+end
+function gameScoreMgr:setMsgTransfer(msgt)
+	scoreMgr.msgTransfer = msgt
+end
+
+function gameScoreMgr:setGameCenter(gamec)
+	gameCtrl = gamec
+end
+
+local function msgTrans(yieldSite, yieldScore, payBills)
+	scoreMgr.msgTransfer:msg(R.sMsg.payBill, {payBills=payBills, yieldScore=yieldScore, yieldPid=scoreMgr.players[yieldSite].pid})
+end
+local function nextSite(s)
+	local z = (s + 1)%(R.MAX_PLAYER_COUNT)
+	return z == 0 and 4 or z
+end
+local function turnSite(s, n)
+	local z = (s + n)%(R.MAX_PLAYER_COUNT)
+	return z == 0 and 4 or z
+end
+
+local function payScoreWithOne(yieldSite, paySite, payScore)
+	local payBills={{scoreMgr.players[paySite].pid, (R.MAX_PLAYER_COUNT-1)*payScore}}
+	msgTrans(yieldSite, (R.MAX_PLAYER_COUNT-1)*payScore, payBills)
+	
+	local players = gameCtrl:get_players()
+	for i=1, R.MAX_PLAYER_COUNT do
+		if yieldSite == i then
+			players.player[i]:addScore((R.MAX_PLAYER_COUNT-1)*payScore)
+		elseif paySite == i then
+			players.player[i]:addScore(-(R.MAX_PLAYER_COUNT-1)*payScore)
+		end
+	end
+end
+local function payScoreWithEvery(yieldSite, payScore)
+	local payBills={}
+	for i=1,R.MAX_PLAYER_COUNT-1 do 
+		payBills[#payBills+1] = {scoreMgr.players[turnSite(yieldSite, i)].pid, payScore} 
+	end
+	msgTrans(yieldSite, (R.MAX_PLAYER_COUNT-1)*payScore, payBills)
+	
+	local players = gameCtrl:get_players()
+	for i=1, R.MAX_PLAYER_COUNT do
+		if yieldSite == i then
+			players.player[i]:addScore((R.MAX_PLAYER_COUNT-1)*payScore)
+		else
+			players.player[i]:addScore(-payScore)
+		end
+	end
+end
+
+local function Peng(rule, yieldSite, cards, paySite)
+	local recordCnt = #history[yieldSite][rule]
+	
+	if recordCnt < 3 then
+		if paySite ~= 0 then
+			payScoreWithOne(yieldSite, paySite, 1)
+		else
+			payScoreWithEvery(yieldSite, 1)
+		end
+		
+	elseif recordCnt == 3 then
+		if paySite ~= 0 then
+			payScoreWithOne(yieldSite, paySite, 5)
+		else
+			payScoreWithEvery(yieldSite, 5)
+		end
+		
+	elseif recordCnt == 4 then
+		if paySite ~= 0 then
+			payScoreWithOne(yieldSite, paySite, 5)
+		else
+			payScoreWithEvery(yieldSite, 5)
+		end
+		
+	elseif recordCnt == 5 then
+		if paySite ~= 0 then
+			payScoreWithOne(yieldSite, paySite, 40)
+		else
+			payScoreWithEvery(yieldSite, 40)
+		end
+	end
+end
+local function Wei(rule, yieldSite, cards, paySite)
+	local recordCnt = #history[yieldSite][rule]
+	
+	if recordCnt < 3 then
+		payScoreWithEvery(yieldSite, 2)
+		
+	elseif recordCnt == 3 then
+		payScoreWithEvery(yieldSite, 6)
+		
+	elseif recordCnt == 4 then
+		payScoreWithEvery(yieldSite, 6)
+		
+	elseif recordCnt == 5 then
+		payScoreWithEvery(yieldSite, 40)
+	end
+end
+
+local function Pao(rule, yieldSite, cards, paySite)
+	if rule == R.rule.Pao or rule == R.rule.Pao_kan then
+		payScoreWithEvery(yieldSite, 4)
+		
+	elseif rule == R.rule.Pao_wei then
+		if paySite ~= 0 then
+			payScoreWithOne(yieldSite, paySite, 4)
+		else
+			payScoreWithEvery(yieldSite, 4)
+		end
+		
+	elseif rule == R.rule.Pao_peng then
+		if paySite ~= 0 then
+			payScoreWithOne(yieldSite, paySite, 4)
+		else
+			payScoreWithEvery(yieldSite, 4)
+		end
+	end
+end
+
+local function Ti(rule, yieldSite, cards, paySite)
+	local recordCnt = #history[yieldSite][rule]
+	
+	if rule == R.rule.Ti or rule == R.rule.Ti_zimo then
+		if recordCnt == 2 then
+			payScoreWithEvery(yieldSite, 40)
+		else
+			payScoreWithEvery(yieldSite, 10)
+		end
+		
+	elseif rule == R.rule.Ti_kan then
+		payScoreWithEvery(yieldSite, 8)
+		
+	elseif rule == R.rule.Ti_wei then
+		payScoreWithEvery(yieldSite, 8)
+	end
+end
+local function Hupai(rule, yieldSite, cards, paySite)
+	if R.wintype.pinghu == rule then
+		if yieldSite ~= scoreMgr.zhuangSite then
+			payScoreWithEvery(yieldSite, 4)
+		else
+			payScoreWithEvery(yieldSite, 8)
+		end
+		
+	elseif R.wintype.qidui == rule then
+		if yieldSite ~= scoreMgr.zhuangSite then
+			payScoreWithEvery(yieldSite, 40)
+		else
+			payScoreWithEvery(yieldSite, 80)
+		end
+		
+	elseif R.wintype.paoshuang == rule then
+		if yieldSite ~= scoreMgr.zhuangSite then
+			payScoreWithEvery(yieldSite, 8)
+		else
+			payScoreWithEvery(yieldSite, 16)
+		end
+		
+	end
+end
+
+--cardSite == 0别人摸的牌，其他为别人打的牌
+function gameScoreMgr:paycard(yieldSite, rule, cards, cardSite)
+	local record = {cards={}, paySite=cardSite}
+	for k,v in pairs(cards) do record.cards[k]=v end
+	
+	if not history[yieldSite][rule] then history[yieldSite][rule] = {} end
+	table.insert(history[yieldSite][rule], record)
+	
+	print("gameScoreMgr:paycard.rule",rule,yieldSite,cardSite)
+	if rule == R.rule.Peng then
+		Peng(rule, yieldSite, cards, cardSite)
+	elseif rule == R.rule.Wei or rule == R.rule.Kan or rule == R.rule.Wei_chou then
+		Wei(rule, yieldSite, cards, cardSite)
+	elseif rule == R.rule.Pao or rule == R.rule.Pao_kan or rule == R.rule.Pao_wei or rule == R.rule.Pao_peng then
+		Pao(rule, yieldSite, cards, cardSite)
+	elseif rule == R.rule.Ti or rule == R.rule.Ti_zimo or rule == R.rule.Ti_kan or rule == R.rule.Ti_wei then
+		Ti(rule, yieldSite, cards, cardSite)
+	else
+		Hupai(rule, yieldSite, cards, cardSite)
+	end
+end
+
+return gameScoreMgr

@@ -1,0 +1,841 @@
+local skynet = require "skynet"
+local netpack = require "netpack"
+require "skynet.manager"
+local mutexLock = require "skynet.queue"
+local sharedata = require "sharedata"
+
+require "functions"
+local function hotRequire(file_name)
+	package.loaded[file_name] = nil
+	local f = require(file_name)
+	return f
+end
+
+local cs = mutexLock()
+local gameCenter = {}
+gameCenter.co_run = nil
+gameCenter.roomId = 0
+
+local R = nil
+local roomMasterPid = 0
+MAX_CARD_COUNT = 80
+
+local zhuang = {site=1}
+local players = {player={}, count=0}
+local gameState = nil
+local history = {}--{gameResult}
+local cardsMgr = {cards={}, cardIds={}, payIndex=0}
+local curPaysite = 0--当前出牌local site
+local lastPayCardRule = nil
+local turnRunCount = 0--当前轮牌次数
+
+local inputPossibles = {}
+local inputCards = {}
+
+local msgTransfer = nil--游戏消息传递器
+
+local gameConfig = hotRequire("logic.gameConfig")
+local ruleHelp = hotRequire("logic.ruleHelp")
+local gameScoreMgr = hotRequire("logic.gameScoreManager")
+gameScoreMgr:setGameCenter(gameCenter)
+
+
+
+local function turnNextSite(s)
+	local z = (s + 1)%(R.MAX_PLAYER_COUNT)
+	return z == 0 and 4 or z
+end
+local function turnSite(s, n)
+	local z = (s + n)%(R.MAX_PLAYER_COUNT)
+	return z == 0 and 4 or z
+end
+
+
+function string.split(input, delimiter)
+    if not input or input == "" then
+        return {}
+    end
+    input = tostring(input)
+    delimiter = tostring(delimiter)
+    if (delimiter=='') then return false end
+    local pos,arr = 0, {}
+    -- for each divider found
+    for st,sp in function() return string.find(input, delimiter, pos, true) end do
+        table.insert(arr, string.sub(input, pos, st - 1))
+        pos = sp + 1
+    end
+    table.insert(arr, string.sub(input, pos))
+    return arr
+end
+
+local PLAY_MSG = {}
+local roomagent = nil
+function PLAY_MSG.playerEnter(pack)
+	local res = skynet.call(roomagent, "lua", "enterRoom", "joinRoomNotify", pack) 
+	if res == 0 then
+		skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "joinRoomNotify", pack)
+	end
+end
+function PLAY_MSG.playerInitCards(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "roomCardInitNotify", pack)
+end
+function PLAY_MSG.playerReady(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "readyNotify", pack)
+end
+function PLAY_MSG.startGame(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "startNotify", pack)
+end
+function PLAY_MSG.playerChat(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "chatNotify", pack)
+end
+function PLAY_MSG.payCardSystem(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "paySystemCardNotify", pack)
+end
+function PLAY_MSG.turnPlayer(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "turnPlayerNotify", pack)
+end
+function PLAY_MSG.payCardPlayer(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "payCardNotify", pack)
+end
+function PLAY_MSG.ruleCardsPossible(pack, pid)
+	skynet.call(roomagent, "lua", "playerMsg_notify", "ruleCardsPossible", pid, pack)
+end
+function PLAY_MSG.payRuleCardPlayer(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "payRuleCardNotify", pack)
+end
+function PLAY_MSG.payBill(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "payBillNotify", pack)
+end
+function PLAY_MSG.hupai(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "hupaiNotify", pack)
+end
+function PLAY_MSG.gameFinish(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "gameFinishNotify", pack)
+end
+function PLAY_MSG.masterCheckoutRoom(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "masterCheckoutRoomNotify", pack)
+	PLAY_MSG.gameFinish()
+end
+function PLAY_MSG.wufuBaojing(pack)
+	skynet.call(roomagent, "lua", "playerMsg_multicastNotify", "wufuBaojingNotify", pack)
+end
+
+
+
+
+local CMD = setmetatable({}, { __gc = function() netpack.clear(queue) end })
+function CMD.exit()
+	skynet.exit()
+end
+function CMD.initGame(roomid, playTimes, zhongzhuang, forceHupai)
+	R = sharedata.query("R")
+	gameScoreMgr:setR(R)
+	ruleHelp:setR(R)
+	gameState = R.GAME_STATE.waiting
+
+	gameCenter:init(roomid, playTimes, zhongzhuang, forceHupai)
+end
+
+function CMD.setMsgTransfer(room)
+	roomagent = room
+	local gameMessageTransfer = require "logic.gameMessageTransfer"
+	gameMessageTransfer:setMsgReceiver(function(msgName, pack, pid)
+		local f = PLAY_MSG[msgName]
+		f(pack, pid)
+	end)
+	msgTransfer = gameMessageTransfer
+	msgTransfer:setGameCenter(gameCenter)
+	msgTransfer:setR(R)
+	
+
+	gameScoreMgr:setMsgTransfer(gameMessageTransfer)
+end
+
+function CMD.playerEnter(pid, nickName, ip)
+	gameCenter:playerEnter(pid, nickName, ip)
+end
+
+function CMD.playerReEnter(pid, nickName, ip)
+	gameCenter:playerReEnter(pid, nickName, ip)
+end
+
+function CMD.playerReady(pid)
+	gameCenter:playerReady(pid)
+	
+end
+
+function CMD.playerPayCards(pid, rule, cardsdata)
+	if gameCenter.co_run then 
+		local cards = string.split(cardsdata, ",")
+		for k,v in pairs(cards) do cards[k] = tonumber(v) end
+		inputCards = {site=gameCenter:getSiteByPid(pid), rule=rule, cards=cards}
+		skynet.wakeup(gameCenter.co_run) 
+		gameCenter.co_run = nil
+	end	
+end
+
+function CMD.playerChat(pid, faceid)
+	msgTransfer:msg(R.sMsg.playerChat, pid, faceid)
+end
+
+function CMD.masterCheckoutRoom(pid)
+	if roomMasterPid == pid then
+		msgTransfer:msg(R.sMsg.masterCheckoutRoom)
+	end
+end
+
+function CMD.gameFinish()
+	gameCenter:gameFinish()
+	msgTransfer:msg(R.sMsg.gameFinish)
+end
+
+skynet.start(function()
+	print("gameCenter service start")
+	skynet.dispatch("lua", function (session, address, cmd, ...)
+		--print("gameCenter.dispatch.cmd: " .. cmd)
+		local f = CMD[cmd]
+		if f then
+			skynet.ret(skynet.pack(f(...)))
+		else
+			skynet.ret(skynet.pack(handler.command(cmd, address, ...)))
+		end
+	end)
+end)
+
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+------------------------------------------------------------------------------------------------------------------------------
+
+
+function gameCenter:init(roomid, playTimes, zhongzhuang, forceHupai)
+	gameCenter.roomId = roomid
+	gameConfig:reset(playTimes, forceHupai)
+	
+	zhuang.site = 1	
+	players.player = {}
+	players.count = 0
+	
+	for i=1, R.MAX_PLAYER_COUNT do
+		local p = hotRequire("logic.player")
+		p:setRuleHelp(ruleHelp)
+		p:setR(R)
+		table.insert(players.player, p)
+	end
+		
+	gameState = R.GAME_STATE.waiting
+	
+	history = {}
+	
+	cardsMgr = {cards={}, cardIds={}, payIndex=0}
+	
+	curPaysite = 0
+	
+	inputCards = {}
+	
+	inputPossibles = {}
+		
+    math.randomseed(tostring(os.time()):reverse():sub(1, 6))
+end
+
+function gameCenter:gameOver()
+	gameState = R.GAME_STATE.gameover
+	cardsMgr = {cards={}, cardIds={}, payIndex=0}
+	curPaysite = 0
+	turnRunCount = 0
+	inputCards = {}
+	inputPossibles = {}
+	
+	for i=1, R.MAX_PLAYER_COUNT do
+		players.player[i]:gameover(history[#history]:getWinnerPid(), history[#history]:getWinType())
+	end
+end
+
+function gameCenter:gameFinish()
+	gameState = R.GAME_STATE.finish
+end
+
+function gameCenter:get_players()
+	return players
+end
+function gameCenter:get_mostCards() 
+	return cardsMgr.cardIds
+end
+function gameCenter:getGameConfig()
+	local c = ""
+	c = c .. gameConfig:getPlayConfigTimes() .. ","
+	c = c .. (gameConfig:isForceHupai() and "1" or "0") .. ","
+	c = c .. (gameConfig:getZhongzhuang() and "1" or "0")
+	return c
+end
+
+function gameCenter:getSiteByPid(pid)
+	for i=1, #players.player do
+		if players.player[i].pid == pid then return i end
+	end
+	return 0
+end
+function gameCenter:getPidBySite(site)
+	if  players.player[site] then
+		return players.player[site].pid
+	end
+	return 0
+end
+
+function gameCenter:playerEnter(pid, nickName, ip)
+	if players.count >= R.MAX_PLAYER_COUNT then
+		msgTransfer:msg(R.sMsg.playerEnter, -1, gameCenter.roomId, pid)
+		return
+	end
+	
+	if gameState ~= R.GAME_STATE.waiting then
+		msgTransfer:msg(R.sMsg.playerEnter, -2, gameCenter.roomId, pid)
+		return
+	end
+		
+	for i=1, R.MAX_PLAYER_COUNT do
+		if players.player[i].pid == 0 then
+			players.player[i].pid = pid
+			players.player[i].nickName = nickName
+			players.player[i].ip = ip
+			players.player[i]:setLocalsite(i)
+			if i == 1 then roomMasterPid = pid end
+			break
+		end
+	end
+		
+	players.count =players.count + 1
+	msgTransfer:msg(R.sMsg.playerEnter, 0, gameCenter.roomId, pid, roomMasterPid)
+end
+
+function gameCenter:playerReEnter(pid, nickName, ip)
+	local ok = false
+	for i=1, R.MAX_PLAYER_COUNT do
+		if players.player[i].pid == pid then
+			players.player[i].nickName = nickName
+			players.player[i].ip = ip
+			ok = true
+			break
+		end
+	end
+	
+	if ok then
+		msgTransfer:msg(R.sMsg.playerEnter, 0, gameCenter.roomId, pid, roomMasterPid)
+		msgTransfer:msg(R.sMsg.playerInitCards, players.player[zhuang.site].pid, MAX_CARD_COUNT-cardsMgr.payIndex)
+	else
+		msgTransfer:msg(R.sMsg.playerEnter, -3, gameCenter.roomId, pid)
+	end
+end
+
+function gameCenter:playerReady(pid)
+	if gameState == R.GAME_STATE.playing then return end
+	if gameState == R.GAME_STATE.finish then return end
+	
+	for k,v in pairs(players.player) do
+		if v.pid == pid then
+			if v:isReady() then return end
+			v:ready(true)
+			msgTransfer:msg(R.sMsg.playerReady, pid)
+			break
+		end
+	end
+	
+	local readyCnt = 0
+	for i=1, #players.player do
+		if players.player[i]:isReady() then readyCnt = readyCnt + 1 end
+	end
+	
+	if readyCnt == R.MAX_PLAYER_COUNT then
+		self:startPlay()
+	end
+end
+
+
+
+function gameCenter:startPlay()
+	if gameState == R.GAME_STATE.playing then return -1 end
+	gameState = R.GAME_STATE.playing
+	
+	msgTransfer:msg(R.sMsg.startGame)
+	
+	--生成庄家
+	local function createNewZhuang()
+		if #history == 0 then
+			return math.random(1,R.MAX_PLAYER_COUNT)
+		end
+		
+		if history[#history]:isWin() then
+			return self:getSiteByPid( history[#history]:getWinnerPid() )
+			
+		else
+			local function nextZhuang()
+				local s = self:getSiteByPid(history[#history]:getZhuangPid())
+				return turnNextSite(s)
+			end
+			if history[#history]:isHongzhuang() then
+				if #history >= 3 and--连续3把篊庄，则移庄
+					history[#history - 1]:isHongzhuang() and
+					history[#history - 2]:isHongzhuang() then
+					return nextZhuang()
+				else
+					return self:getSiteByPid(history[#history]:getZhuangPid())
+				end
+			else
+				return nextZhuang()
+			end
+		end
+	end	
+	zhuang.site = createNewZhuang()
+	for i=1, #players.player do
+		players.player[i]:zhuang(zhuang.site == players.player[i]:getLocalsite())
+	end
+	
+	--发牌
+	local function dispatchPokes()
+		local tmpcards = {}
+		local cindex = 1
+		--一张牌各4张
+		for i=1, 4 do
+			for k,v in pairs(R.value) do
+				local c = hotRequire("logic.card")
+				c:set(v, false, cindex)
+				cindex = cindex + 1
+				table.insert(tmpcards, c)
+			end
+		end
+		for i=1, 4 do
+			for k,v in pairs(R.value) do
+				local c = hotRequire("logic.card")
+				c:set(v, true, cindex)
+				cindex = cindex + 1
+				table.insert(tmpcards, c)
+			end
+		end
+		
+		
+		local indexs = {}
+		local ccnt = #tmpcards
+		MAX_CARD_COUNT = ccnt
+		local T = ccnt * 10
+		local a, b, ia, ib		
+		for i=1, ccnt do indexs[i] = i end
+		for i=1, T do
+			a = math.random(1, ccnt)
+			b = math.random(1, ccnt)
+			tmp=indexs[a]
+			ia=indexs[a]
+			ib=indexs[b]
+			indexs[a]=ib
+			indexs[b]=ia
+		end
+		--cardsMgr = {cards={}, cardIds={}, payIndex=0}
+		for i=1, ccnt do
+			table.insert(cardsMgr.cards, tmpcards[indexs[i]])
+		end
+		for i=1, #cardsMgr.cards do
+			cardsMgr.cardIds[cardsMgr.cards[i].id] = cardsMgr.cards[i]
+		end
+		
+		--every player have 14 card
+		cardsMgr.payIndex = 1
+		
+		local playercards = {}
+		for i=1, R.MAX_PLAYER_COUNT do table.insert(playercards, {}) end
+		for j=0, R.MAX_PLAYER_COUNT-1 do
+			local site = turnSite(zhuang.site, j)
+			for i=1, 14 do
+				table.insert(playercards[site], cardsMgr.cards[cardsMgr.payIndex])
+				cardsMgr.payIndex = cardsMgr.payIndex + 1
+			end
+		end
+		table.insert(playercards[zhuang.site], cardsMgr.cards[cardsMgr.payIndex])
+		cardsMgr.payIndex = cardsMgr.payIndex + 1
+		
+		for i=1, R.MAX_PLAYER_COUNT do 
+			players.player[i]:initCards(playercards[i], cardsMgr.cards) 
+		end
+	end
+	dispatchPokes()
+	msgTransfer:msg(R.sMsg.playerInitCards, players.player[zhuang.site].pid, MAX_CARD_COUNT-cardsMgr.payIndex, roomMasterPid)
+	gameScoreMgr:reset(players.player, cardsMgr.cardIds, zhuang.site)
+	
+	curPaysite = zhuang.site
+	lastPayCardRule = R.rule.Ti
+	
+	--先检查一轮ti,kan
+	local site = 0
+	for i=0, R.MAX_PLAYER_COUNT-1 do
+		site = turnSite(curPaysite, i)
+		local ruleCards = players.player[site]:dispatchCardTest(true)
+		print("dispatchCardTest over", players.player[site].pid)
+		if ruleCards[R.rule.Ti_zimo] then
+			for k,v in pairs(ruleCards[R.rule.Ti_zimo]) do
+				if players.player[site]:payCards(R.rule.Ti_zimo, v) then
+					msgTransfer:msg(R.sMsg.payRuleCardPlayer, {pid=players.player[site].pid, rule=R.rule.Ti_zimo, cards=v,othercard=0})
+					gameScoreMgr:paycard(site, R.rule.Ti_zimo, v, 0)
+				end
+			end
+		end
+		
+		if ruleCards[R.rule.Kan] then
+			for k,v in pairs(ruleCards[R.rule.Kan]) do
+				if players.player[site]:payCards(R.rule.Kan, v) then
+					msgTransfer:msg(R.sMsg.payRuleCardPlayer, {pid=players.player[site].pid, rule=R.rule.Kan, cards=v, othercard=0})
+					gameScoreMgr:paycard(site, R.rule.Kan, v, 0)
+				end
+			end
+		end
+		
+	end
+	
+	msgTransfer:msg(R.sMsg.turnPlayer, self:getPidBySite(curPaysite))
+
+	
+	skynet.fork(function()
+
+		local winnerPid, winnerType, winCard, dpPid = self:run()
+		if turnRunCount == 0 then winnerType = R.wintype.tianhu
+		elseif turnRunCount == 1 then winnerType = R.wintype.dihu
+		elseif dpPid ~= 0 and winnerType == R.wintype.pinghu then winnerType = R.wintype.penghu end
+		
+		gameScoreMgr:paycard(self:getSiteByPid(winnerPid), winnerType, {}, 0)
+		msgTransfer:msg(R.sMsg.hupai, winnerPid, winnerType, winCard, dpPid)
+		
+		local gameres = hotRequire("logic.gameResult")
+		gameres:set(self:getPidBySite(zhuang.site), winnerPid, winnerType, winnerType==R.wintype.hongzhuang)
+		history[#history+1] = gameres
+		
+		local curTimes = gameConfig:getCurrentPlayTimes()
+		gameConfig:setCurrentPlayTimes(curTimes+1)
+		if curTimes >= gameConfig:getPlayConfigTimes() then
+			CMD.gameFinish()
+		else
+			self:gameOver()
+		end
+	end)
+	
+end
+
+function gameCenter:checkHupai(site)
+	if not site then
+		for i=0, R.MAX_PLAYER_COUNT-1 do
+			site = turnSite(curPaysite, i)
+			local winType = players.player[site]:getHupaiType()
+			if R.wintype.none ~= winType then
+				return players.player[site].pid, winType
+			end
+		end
+	else
+		local winType = players.player[site]:getHupaiType()
+		if R.wintype.none ~= winType then
+			return players.player[site].pid, winType
+		end
+	end
+end
+
+local stime = 100
+function gameCenter:run()
+	
+	local function tryHupai(site)
+		local pid, wintype = self:checkHupai(site)
+		if pid then
+			return pid, wintype
+		end
+	end
+	local function waitPlayerPayPoke()
+		while true do 
+			gameCenter.co_run = coroutine.running()
+			skynet.wait()
+			if inputCards.site == curPaysite and inputCards.rule == R.rule.None then
+				return inputCards.cards[1]
+			end
+		end
+	end
+	
+	
+	local function waitPlayerPayRulePoke()
+		if next(inputPossibles) == nil then return 0, R.rule.None, {} end
+		
+		table.sort(inputPossibles, function(a,b) return tonumber(a.rule) > tonumber(b.rule) end)
+		
+		local function getInfoWithInputCards(input)
+			if input.rule == R.rule.None then return input.site, input.rule, input.cards end
+			for k,v in pairs(inputPossibles) do
+				if v.rule == input.rule and v.site == input.site then
+					for kk,vv in pairs(v.cards) do
+						local idcnt = 0
+						local hasid = 0
+						for k1,v1 in pairs(vv) do idcnt=idcnt+v1 end
+						for k1,v1 in pairs(input.cards) do hasid=hasid+v1 end
+						if idcnt == hasid then
+							return v.site, v.rule, vv
+						end
+					end
+				end
+			end
+		end
+		while true do 
+			gameCenter.co_run = coroutine.running()
+			skynet.wait()
+			print("inputCards")
+			print_lua_table(inputCards)
+			print("2inputPossibles")
+			print_lua_table(inputPossibles)		
+			local site, rule, cards = getInfoWithInputCards(inputCards)
+			
+			--如果是最大的值，则取消其它所有的玩家选择权。直接让最大的出牌
+			local idx = 1
+			while(true) do
+				if idx > #inputPossibles then break end
+				if not inputPossibles[idx].play then
+					inputPossibles[idx].play = inputPossibles[idx].site == inputCards.site
+				end
+				
+					if inputPossibles[idx].site == inputCards.site and inputPossibles[idx].play and (inputPossibles[idx].rule ~= rule or R.rule.None == rule) then
+						table.remove(inputPossibles, idx)
+						idx = 1
+					else
+						if inputPossibles[idx].site == inputCards.site and inputPossibles[idx].play and inputPossibles[idx].rule == rule then
+							inputPossibles[idx].cards = cards
+						end
+						idx = idx + 1
+					end
+			end
+				print("1inputPossibles")
+			print_lua_table(inputPossibles)		
+			if 0 == #inputPossibles then
+				return 0, R.rule.None
+			end
+			
+			if inputPossibles[1].play then
+				local res = inputPossibles[1]
+				return res.site, res.rule, res.cards
+			end
+		end
+	end
+	
+	local function dispatchCardTest(card, cardSite, system)
+		local res = {}
+		local begin = system and 0 or 1
+		for i=begin, R.MAX_PLAYER_COUNT-1 do
+			local site = turnSite(cardSite, i)
+			
+			local rulecards = players.player[site]:dispatchCardTest(curPaysite==site, cardSite, card)
+			for k,v in pairs(rulecards) do
+				table.insert(res, {site=site, rule=k, cards=v})
+			end
+		end
+		return res
+	end
+	
+	local function systemDispatchCard()
+		if cardsMgr.payIndex <= MAX_CARD_COUNT then
+			local card = cardsMgr.cards[cardsMgr.payIndex]
+			cardsMgr.payIndex = cardsMgr.payIndex + 1
+			return card.id
+		end
+	end
+	
+	local winnerPid, winnerType = tryHupai()
+	if winnerPid then return winnerPid, winnerType, 0, 0 end
+	
+	while true do
+		if gameState ~= R.GAME_STATE.playing then break end
+		turnRunCount = turnRunCount + 1
+		
+		--出牌
+		local paycard = nil
+		local payMessage = lastPayCardRule == R.rule.None and R.sMsg.payCardSystem or R.sMsg.payCardPlayer
+		
+		local paySite = players.player[curPaysite].pid
+		
+		if lastPayCardRule == R.rule.None then
+			paycard = systemDispatchCard()
+			if not paycard then
+				msgTransfer:msg(payMessage, {pid=paySite, card=paycard, show=true})
+				return players.player[turnSite(curPaysite, -1)].pid, R.wintype.hongzhuang, 0, 0
+			end
+		else
+			msgTransfer:msg(R.sMsg.turnPlayer, players.player[curPaysite].pid)
+			paycard = waitPlayerPayPoke()
+			players.player[curPaysite]:payCards(R.rule.None, {paycard})
+		end
+		
+		local rulecards = dispatchCardTest(paycard, curPaysite, lastPayCardRule == R.rule.None)
+		print("rulecards:")
+		print_lua_table(rulecards)
+		local continue = true
+		
+		--强制牌1
+		for k,v in pairs(rulecards) do
+			if ruleHelp:isForceRule1(v.rule) then
+				for kk,vv in pairs(v.cards) do
+					local paycards = {}
+					for kkk,vvv in pairs(vv) do if vvv ~= paycard then table.insert(paycards, vvv) end end
+					if players.player[v.site]:payCards(v.rule, paycards, paycard) then
+						
+						local hidecard = ruleHelp:hideSystemCard(v.rule)
+						msgTransfer:msg(payMessage, {pid=paySite, card=paycard, show=not hidecard})
+						skynet.sleep(hidecard and 0 or stime)
+						msgTransfer:msg(R.sMsg.payRuleCardPlayer, {pid=players.player[v.site].pid, rule=v.rule, cards=vv, othercard=0})
+						gameScoreMgr:paycard(v.site, v.rule, vv, lastPayCardRule == R.rule.None and 0 or curPaysite)
+						
+						msgTransfer:msg(R.sMsg.turnPlayer, players.player[v.site].pid)
+						
+						local winnerPid, winnerType = tryHupai(v.site)--强制牌后再检查一次胡牌
+						if winnerPid then
+							return winnerPid, winnerType, paycard, lastPayCardRule ~= R.rule.None and curPaysite or 0
+						end
+						
+						if players.player[v.site]:canPayCardAfterRule(v.rule) then
+						--if v.rule == R.rule.Ti_zimo then--第一次提之后，后面的提不用出牌
+							curPaysite = v.site
+							lastPayCardRule = v.rule
+						elseif v.rule == R.rule.Ti_kan or v.rule == R.rule.Ti_wei then
+							curPaysite = turnNextSite(curPaysite)
+							lastPayCardRule = R.rule.None
+							skynet.sleep(stime)
+						end
+						continue = false
+						break
+						
+						
+					end
+				end	
+			end
+		end
+		
+		--胡牌
+		if continue then			
+			for k,v in pairs(rulecards) do				
+				for kk,vv in pairs(v.cards) do
+					local paycards = {}
+					for kkk,vvv in pairs(vv) do if vvv ~= paycard then table.insert(paycards, vvv) end end
+					if players.player[v.site]:payCards(v.rule, paycards, paycard) then
+						print("1hupaiTest",players.player[v.site].pid, v.rule)
+						local winnerPid, winnerType = tryHupai(v.site)
+						print("2hupaiTest",winnerPid, winnerType)
+						if winnerPid then
+							msgTransfer:msg(payMessage, {pid=paySite, card=paycard, show=true})
+							skynet.sleep(stime)
+							msgTransfer:msg(R.sMsg.payRuleCardPlayer, {pid=players.player[v.site].pid, rule=v.rule, cards=vv, othercard=lastPayCardRule == R.rule.None and 0 or paycard})
+							gameScoreMgr:paycard(v.site, v.rule, vv, lastPayCardRule == R.rule.None and 0 or curPaysite)
+							return winnerPid, winnerType, paycard, lastPayCardRule ~= R.rule.None and curPaysite or 0
+						else
+							players.player[v.site]:backspacePaycards()
+						end
+					end
+				end
+			end
+		end
+		
+		
+		--强制牌2,Pao_peng有BUG
+		for k,v in pairs(rulecards) do
+			if ruleHelp:isForceRule2(v.rule) then
+				for kk,vv in pairs(v.cards) do
+					local paycards = {}
+					for kkk,vvv in pairs(vv) do if vvv ~= paycard then table.insert(paycards, vvv) end end
+					if players.player[v.site]:payCards(v.rule, paycards, paycard) then
+						local hidecard = ruleHelp:hideSystemCard(v.rule)
+						msgTransfer:msg(payMessage, {pid=paySite, card=paycard, show=not hidecard})
+						skynet.sleep(hidecard and 0 or stime)
+						msgTransfer:msg(R.sMsg.payRuleCardPlayer, {pid=players.player[v.site].pid, rule=v.rule, cards=vv, othercard=lastPayCardRule == R.rule.None and 0 or paycard})
+						gameScoreMgr:paycard(v.site, v.rule, vv, lastPayCardRule == R.rule.None and 0 or curPaysite)
+						
+						msgTransfer:msg(R.sMsg.turnPlayer, players.player[v.site].pid)
+						
+						local winnerPid, winnerType = tryHupai(v.site)--强制牌后再检查一次胡牌
+						if winnerPid then
+							return winnerPid, winnerType, paycard, lastPayCardRule ~= R.rule.None and curPaysite or 0
+						end
+							
+						curPaysite = v.site
+						lastPayCardRule = v.rule
+						continue = false
+						break
+					end
+				end	
+			end
+		end
+		
+		--组牌
+		if continue then
+			msgTransfer:msg(payMessage, {pid=paySite, card=paycard, show=true})
+			
+			local sitecards = {}
+			local msgsitecards = {}
+			
+			--filter chi
+			local i = #rulecards
+			local nextSite = turnSite(curPaysite, 1)
+			while(i > 0) do
+				if rulecards[i].rule == R.rule.Chi then					
+					if rulecards[i].site == curPaysite or rulecards[i].site == nextSite then
+						i=i-1
+					else
+						table.remove(rulecards, i)
+						i=#rulecards
+					end
+				else
+					i=i-1
+				end
+			end
+			
+			--分发牌型
+			for k,v in pairs(rulecards) do
+				local pid = self:getPidBySite(v.site)
+				if not msgsitecards[pid] then msgsitecards[pid] = {} end
+				table.insert(msgsitecards[pid], {rule=v.rule, site=v.site, cards=v.cards, othercard=paycard})
+				table.insert(sitecards, {rule=v.rule, site=v.site, cards=v.cards, othercard=paycard})
+			end
+			
+			for k,v in pairs(msgsitecards) do
+				msgTransfer:msg(R.sMsg.ruleCardsPossible, k, v)
+			end
+			
+			inputPossibles = sitecards
+			local site, rule, cards = waitPlayerPayRulePoke()
+			
+			--整理臭牌
+			for playerid,rulelist in pairs(msgsitecards) do
+				for k,v in in pairs(rulelist) do
+					local has = false
+					for kk,vv in pairs(inputPossibles) do
+						if vv.site == v.site and vv.rule == v.rule then
+							has = true
+							break
+						end
+					end
+					if not has then
+						players.player[v.site]:choupai(v.rule, paycard)
+					end
+				end
+			end
+			
+			inputPossibles = {}
+			
+			if rule == R.rule.None then
+				curPaysite = turnNextSite(curPaysite)
+				lastPayCardRule = rule
+				skynet.sleep(stime)
+				
+			else
+				local paycards = {}
+				for kk,vv in pairs(cards) do if vv ~= paycard then table.insert(paycards, vv) end end
+				players.player[site]:payCards(rule, paycards, paycard)
+				msgTransfer:msg(R.sMsg.payRuleCardPlayer, {pid=players.player[site].pid, rule=rule, cards=cards, othercard=lastPayCardRule == R.rule.None and 0 or paycard})
+				gameScoreMgr:paycard(site, rule, cards, lastPayCardRule == R.rule.None and 0 or curPaysite)
+				
+				if players.player[site]:checkWufuBaojing() then
+					msgTransfer:msg(R.sMsg.wufuBaojing, players.player[site].pid)
+				end
+				skynet.sleep(stime)
+				
+				curPaysite = site
+				lastPayCardRule = rule
+			end
+		end
+	end
+end
+
+return interface
