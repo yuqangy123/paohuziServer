@@ -25,7 +25,7 @@ skynet.start(function()
 		address="120.25.156.167",
 		--address="192.168.220.128",
 		--address="172.31.23.220",
-		port = 8080,
+		port = 8088,
 		maxclient = 1024,
 		nodelay = true,
 		gameRoot = gameRoot,
